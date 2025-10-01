@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بوابة الوظائف الاحترافية</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    #scrollBtns {position: fixed; bottom: 20px; right: 20px; display: flex; flex-col gap-2; z-index: 50;}
+    .scrollBtn {background: #2563eb; color: white; padding: 10px; border-radius: 9999px; cursor:pointer; opacity:0.7; transition: opacity 0.3s;}
+    .scrollBtn:hover {opacity:1;}
+    #jobsContainer button:hover {transform: scale(1.05); transition: all 0.2s;}
+</style>
+</head>
+<body class="bg-gray-50 font-sans" dir="rtl">
+
+<header class="bg-blue-600 text-white p-6 shadow-md flex flex-col sm:flex-row justify-between items-center">
+    <div>
+        <h1 id="siteTitle" class="text-3xl font-bold text-center sm:text-left">بوابة الوظائف الاحترافية</h1>
+        <p id="siteSubtitle" class="text-center sm:text-left mt-2">اعثر على أحدث فرص التسويق والذكاء الاصطناعي في الخليج والأردن</p>
+    </div>
+    <button id="langBtn" class="mt-2 sm:mt-0 bg-white text-blue-600 px-4 py-2 rounded shadow hover:bg-gray-100">English</button>
+</header>
+
+<section class="p-6">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row gap-4 mb-6">
+        <input id="searchKeyword" type="text" placeholder="ابحث بالوظيفة أو المهارة" class="flex-1 p-2 border rounded shadow-sm">
+        <select id="filterCountry" class="p-2 border rounded shadow-sm">
+            <option value="all">كل الدول</option>
+            <option value="الأردن">الأردن</option>
+            <option value="السعودية">السعودية</option>
+            <option value="الكويت">الكويت</option>
+            <option value="الإمارات">الإمارات</option>
+            <option value="عمان">عمان</option>
+            <option value="قطر">قطر</option>
+        </select>
+        <select id="filterJob" class="p-2 border rounded shadow-sm">
+            <option value="all">كل الوظائف</option>
+        </select>
+        <button onclick="filterJobs()" id="searchBtn" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">بحث</button>
+    </div>
+
+<section class="p-6">
+<div id="jobsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4"></div>
+<div class="flex gap-4 justify-center mb-10">
+<button id="loadMoreBtn" class="bg-green-600 text-white px-4 py-2 rounded">المزيد من الوظائف</button>
+<button id="hideJobsBtn" class="bg-red-600 text-white px-4 py-2 rounded">اخفاء الوظائف</button>
+</div>
+
+    <h2 id="chartTitle" class="text-2xl font-bold mb-4">إحصائيات الوظائف حسب الدولة</h2>
+    <canvas id="jobsChart" class="bg-white p-4 rounded shadow mb-10"></canvas>
+
+    <h2 id="skillsTitle" class="text-2xl font-bold mb-4">المهارات الأكثر طلبًا</h2>
+    <canvas id="skillsChart" class="bg-white p-4 rounded shadow"></canvas>
+</section>
+
+<div id="jobModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded p-6 w-11/12 sm:w-2/3 lg:w-1/2 relative shadow-lg">
+        <button onclick="closeModal()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-900 text-lg font-bold">✖</button>
+        <div id="modalContent"></div>
+    </div>
+</div>
+
+<!-- أزرار التمرير -->
+<div id="scrollBtns">
+    <div class="scrollBtn" onclick="scrollToTop()">⬆</div>
+    <div class="scrollBtn" onclick="scrollToBottom()">⬇</div>
+</div>
+
+<script>
+// بيانات الوظائف الكاملة
+const jobsData = [
+    {country: 'قطر', company: 'AccorHotels', title: 'منشئ محتوى', skills: 'إنشاء المحتوى، إدارة المحتوى الرقمي', date: '2025-07-01', platform: 'GulfTalent', website: 'https://www.gulftalent.com/qatar/jobs/title/content-manager'},
+    {country: 'قطر', company: 'AccorHotels', title: 'منشئ محتوى', skills: 'إنشاء المحتوى، إدارة المحتوى الرقمي', date: '2025-07-14', platform: 'GulfTalent', website: 'https://www.gulftalent.com/qatar/jobs/title/content-manager'},
+    {country: 'عمان', company: 'PwC Middle East', title: 'خدمات الضرائب والقانون، برنامج الخريجين', skills: 'إدارة العملاء، تحليل البيانات، مهارات البحث', date: '2025-08-09', platform: 'Bayt.com', website: 'https://www.bayt.com/en/oman/jobs/market-research-analysis-jobs-in-muscat/'},
+    {country: 'عمان', company: 'PwC Middle East', title: 'خدمات الضرائب والقانون - الضرائب - ضرائب الشركات - مدير أول', skills: 'تحليل الأعمال، إدارة رأس المال العامل، إدارة الأرباح، التدريب، التغذية الراجعة، الاتصال، إجراء البحوث، الاستشارات', date: '2025-08-12', platform: 'Bayt.com', website: 'https://www.bayt.com/en/oman/jobs/research-and-analysis-jobs/'},
+    {country: 'عمان', company: 'PwC Middle East', title: 'تدقيق - مساعد أول تدقيق خارجي - خدمات مالية (مصرفية)', skills: 'بحث القضايا، تقديم البدائل والاستنتاجات', date: '2025-08-07', platform: 'Bayt.com', website: 'https://www.bayt.com/en/oman/jobs/market-research-analysis-jobs-in-muscat/'},
+    {country: 'الأردن', company: 'Ernst & Young AE', title: 'مستشار استراتيجي EY Parthenon - عمان', skills: 'الاستشارات الاستراتيجية، المهارات التحليلية، حل المشكلات', date: '2025-07-31', platform: 'Naukri Gulf', website: 'https://www.naukrigulf.com/strategy-consultant-jobs-in-jordan'},
+    {country: 'الأردن', company: 'Ernst & Young AE', title: 'مستشار استراتيجي EY Parthenon - عمان', skills: 'الاستشارات الاستراتيجية، المهارات التحليلية، حل المشكلات', date: '2025-08-12', platform: 'Naukri Gulf', website: 'https://www.naukrigulf.com/strategy-consulting-jobs-in-jordan'},
+    {country: 'الأردن', company: 'Avertra', title: 'محلل عمليات واستراتيجيات', skills: 'تحليل العمليات، التخطيط الاستراتيجي', date: '2025-07-29', platform: 'Naukri Gulf', website: 'https://www.naukrigulf.com/strategy-consultant-jobs-in-jordan'},
+    {country: 'الإمارات', company: 'La Maisonaire', title: 'مدير التسويق عبر وسائل التواصل الاجتماعي', skills: 'استراتيجيات وسائل التواصل الاجتماعي، محتوى جذاب، تفاعلات المجتمع، تنفيذ الحملات، خبرة في قطاع الرفاهية، الاتصال، المهارات التحليلية', date: '2025-08-12', platform: 'Bayt.com', website: 'https://www.bayt.com/en/uae/jobs/marketing-manager-jobs/'},
+    {country: 'الإمارات', company: 'Connecting Minds HR Services', title: 'مدير تسويق', skills: 'تسويق العقارات، إدارة الحملات، التسويق الرقمي، مهارات الاتصال', date: '2025-08-11', platform: 'Bayt.com', website: 'https://www.bayt.com/en/uae/jobs/marketing-manager-jobs/'},
+    {country: 'الإمارات', company: 'Total Techno', title: 'أخصائي تسويق رقمي', skills: 'تطوير وإدارة الحملات، تعزيز الوجود عبر الإنترنت، تحليل مقاييس الأداء', date: '2025-08-12', platform: 'Bayt.com', website: 'https://www.bayt.com/en/uae/jobs/marketing-m-jobs/'},
+    {country: 'الإمارات', company: 'Al Habtoor Polo & Equestrian Club LLC', title: 'منسق وسائل التواصل الاجتماعي والتسويق', skills: 'إنشاء محتوى جذاب، إدارة منصات التواصل الاجتماعي، تعزيز الوجود عبر الإنترنت', date: '2025-08-11', platform: 'Bayt.com', website: 'https://www.bayt.com/en/uae/jobs/marketing-m-jobs/'},
+    {country: 'الإمارات', company: 'Agro Vermi Middle East Organic Fertilizer Trading LLC', title: 'مسؤول مبيعات وتسويق', skills: 'ترويج المنتجات، توليد العملاء المحتملين، إغلاق الصفقات، تطوير استراتيجية التسويق', date: '2025-08-12', platform: 'Bayt.com', website: 'https://www.bayt.com/en/uae/jobs/marketing-m-jobs/'},
+    {country: 'الكويت', company: 'Go Studios Group', title: 'أخصائي تسويق', skills: 'استراتيجيات وحملات تسويق متكاملة، التنسيق مع فرق التصميم والمبيعات', date: '2025-08-12', platform: 'Indeed', website: 'https://kw.indeed.com/m/jobs?q=Marketing+Specialist&l=Kuwait'},
+    {country: 'الكويت', company: 'Loft', title: 'أخصائي تسويق', skills: 'استراتيجيات التسويق الرقمي، التعاون مع المصممين والمهندسين والإدارة', date: '2025-08-12', platform: 'Indeed', website: 'https://kw.indeed.com/m/jobs?q=Marketing+Specialist&l=Kuwait'},
+    {country: 'الكويت', company: 'Future Kid For Games &Toys', title: 'أخصائي تسويق', skills: 'مراقبة نشاط المنافسين، تحليل اتجاهات الصناعة، أتمتة التسويق، أدوات إدارة علاقات العملاء', date: '2025-08-12', platform: 'Indeed', website: 'https://kw.indeed.com/m/jobs?q=Marketing+Specialist&l=Kuwait'},
+    {country: 'الكويت', company: 'Al Asfour DCHR', title: 'أخصائي تسويق رقمي', skills: 'تنفيذ حملات التسويق، التعاون مع الرعاة والشركاء، تقاويم المحتوى (Instagram, TikTok, Twitter, LinkedIn, Snapchat)', date: '2025-08-12', platform: 'Indeed', website: 'https://kw.indeed.com/m/jobs?q=Marketing+Specialist&l=Kuwait'},
+    {country: 'الكويت', company: 'Calo', title: 'أخصائي تسويق إبداعي', skills: 'كتابة إعلانات إبداعية، رسومات، صور، نصوص فيديو، إطلاق منتجات، عروض ترويجية، فعاليات مجتمعية', date: '2025-08-12', platform: 'Indeed', website: 'https://kw.indeed.com/m/jobs?q=Marketing+Specialist&l=Kuwait'},
+    {country: 'الكويت', company: 'Alroudhan global co.', title: 'أخصائي مبيعات وتسويق', skills: 'التسويق الرقمي، إدارة وسائل التواصل الاجتماعي، إنشاء المحتوى، التعاون مع فرق الإبداع والعمليات', date: '2025-08-12', platform: 'Indeed', website: 'https://kw.indeed.com/m/jobs?q=Marketing+Specialist&l=Kuwait'},
+    {country: 'المملكة العربية السعودية', company: 'Talina.ai', title: 'رئيس قسم الذكاء الاصطناعي / رئيس الذكاء الاصطناعي', skills: 'تقنيات الذكاء الاصطناعي، التعلم الآلي، تحليل البيانات، استراتيجية الذكاء الاصطناعي، معالجة اللغة الطبيعية، القيادة، التعاون متعدد الوظائف', date: '2025-07-20', platform: 'Bayt.com', website: 'https://www.bayt.com/en/saudi-arabia/jobs/ai-engineer-jobs/'},
+    {country: 'المملكة العربية السعودية', company: 'Talina.ai', title: 'عالم بيانات', skills: 'بايثون، التعلم الآلي، التحليل الإحصائي، تصور البيانات، الاتصال، التفكير النقدي', date: '2025-07-20', platform: 'Bayt.com', website: 'https://www.bayt.com/en/saudi-arabia/jobs/ai-engineer-jobs/'},
+    {country: 'المملكة العربية السعودية', company: 'Value COnsulting', title: 'مطور بايثون', skills: 'مهارات برمجة قوية، التعاون، جودة التطبيق، تطوير برمجيات عالية الجودة، مراجعات الكود، تكامل واجهة برمجة التطبيقات (API)، حل المشكلات', date: '2025-08-11', platform: 'Bayt.com', website: 'https://www.bayt.com/en/saudi-arabia/jobs/ai-engineer-jobs/'},
+    {country: 'المملكة العربية السعودية', company: 'Duncan & Ross', title: 'مهندس ذكاء اصطناعي - LLM, RAG', skills: 'النماذج الأولية، الضبط الدقيق، نشر حلول مدعومة بالذكاء الاصطناعي، ضمان الأداء', date: '2025-07-31', platform: 'Bayt.com', website: 'https://www.bayt.com/en/saudi-arabia/jobs/ai-engineer-jobs/'},
+    {country: 'المملكة العربية السعودية', company: 'Jobskey Consultancy', title: 'مهندس ذكاء اصطناعي', skills: 'تصميم وتطوير وتنفيذ حلول الذكاء الاصطناعي', date: '2025-07-31', platform: 'Bayt.com', website: 'https://www.bayt.com/en/saudi-arabia/jobs/ai-engineer-jobs/'}
+];
+
+// اللغة
+let currentLang = 'ar';
+let displayedCount = 9;
+
+// تهيئة قائمة الوظائف في الفلتر
+function initJobFilter() {
+    const jobSelect = document.getElementById('filterJob');
+    const jobTitles = [...new Set(jobsData.map(job => job.title))];
+    jobTitles.forEach(title => {
+        const option = document.createElement('option');
+        option.value = title;
+        option.textContent = title;
+        jobSelect.appendChild(option);
+    });
+}
+
+// عرض الوظائف مع زر المزيد
+function displayJobs(jobs, count=displayedCount) {
+    const container = document.getElementById('jobsContainer');
+    container.innerHTML = '';
+    if(jobs.length === 0){
+        container.innerHTML = `<p class="col-span-full text-center text-gray-500 font-semibold">${currentLang==='ar'?'لا توجد وظائف مطابقة':'No matching jobs found'}</p>`;
+        return;
+    }
+    jobs.slice(0,count).forEach(job => {
+        const div = document.createElement('div');
+        div.className = 'bg-white p-4 rounded shadow hover:shadow-lg transition cursor-pointer flex flex-col justify-between';
+        div.innerHTML = `
+            <div>
+                <h3 class="font-bold text-lg mb-1">${currentLang==='ar'?job.title:translate(job.title)}</h3>
+                <p class="text-gray-700 mb-1"><strong>${currentLang==='ar'?'الشركة':'Company'}:</strong> ${job.company}</p>
+                <p class="text-gray-700 mb-1"><strong>${currentLang==='ar'?'الدولة':'Country'}:</strong> ${job.country}</p>
+                <p class="text-gray-700 mb-1"><strong>${currentLang==='ar'?'المهارات':'Skills'}:</strong> ${currentLang==='ar'?job.skills:translate(job.skills)}</p>
+                <p class="text-gray-500 text-sm mb-2">${currentLang==='ar'?'تاريخ النشر':'Posted on'}: ${job.date}</p>
+            </div>
+            <div class="flex gap-2 mt-2">
+                <button onclick="showModal('${job.title}', '${job.company}', '${job.country}', '${job.skills}', '${job.date}', '${job.platform}', '${job.website}')" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex-1">${currentLang==='ar'?'عرض التفاصيل':'View Details'}</button>
+                <a href="${job.website}" target="_blank" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 flex-1 text-center">${currentLang==='ar'?'التقديم':'Apply'}</a>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+
+    document.getElementById('loadMoreBtn').style.display = jobs.length>count?'inline-block':'none';
+}
+
+// زر المزيد
+document.getElementById('loadMoreBtn').addEventListener('click', ()=>{
+    displayedCount += 9;
+    filterJobs();
+});
+
+// ترجمة بسيطة
+function translate(text){
+    const dict = {
+        'منشئ محتوى':'Content Creator',
+        'خدمات الضرائب والقانون، برنامج الخريجين':'Tax & Legal Services - Graduate Program',
+        'خدمات الضرائب والقانون - الضرائب - ضرائب الشركات - مدير أول':'Tax & Legal Services - Senior Manager',
+        'تدقيق - مساعد أول تدقيق خارجي - خدمات مالية (مصرفية)':'Audit - Senior Assistant - Financial Services (Banking)',
+        'مدير التسويق عبر وسائل التواصل الاجتماعي':'Social Media Marketing Manager',
+        'أخصائي تسويق رقمي':'Digital Marketing Specialist',
+        'أخصائي تسويق':'Marketing Specialist',
+        'أخصائي تسويق إبداعي':'Creative Marketing Specialist',
+        'أخصائي مبيعات وتسويق':'Sales & Marketing Specialist',
+        'رئيس قسم الذكاء الاصطناعي / رئيس الذكاء الاصطناعي':'Head of AI / AI Director',
+        'عالم بيانات':'Data Scientist',
+        'مطور بايثون':'Python Developer',
+        'مهندس ذكاء اصطناعي - LLM, RAG':'AI Engineer - LLM, RAG',
+        'مهندس ذكاء اصطناعي':'AI Engineer'
+    };
+    return dict[text] || text;
+}
+
+// فلترة الوظائف
+function filterJobs() {
+    const keyword = document.getElementById('searchKeyword').value.toLowerCase();
+    const country = document.getElementById('filterCountry').value;
+    const jobTitle = document.getElementById('filterJob').value;
+
+    const filtered = jobsData.filter(job => {
+        return (country === 'all' || job.country === country) &&
+               (jobTitle === 'all' || job.title === jobTitle) &&
+               (job.title.toLowerCase().includes(keyword) || job.skills.toLowerCase().includes(keyword));
+    });
+    displayJobs(filtered);
+}
+
+// Modal
+function showModal(title, company, country, skills, date, platform, website) {
+    const modal = document.getElementById('jobModal');
+    const content = document.getElementById('modalContent');
+    content.innerHTML = `
+        <h3 class="font-bold text-xl mb-2">${currentLang==='ar'?title:translate(title)}</h3>
+        <p class="mb-1"><strong>${currentLang==='ar'?'الشركة':'Company'}:</strong> ${company}</p>
+        <p class="mb-1"><strong>${currentLang==='ar'?'الدولة':'Country'}:</strong> ${country}</p>
+        <p class="mb-1"><strong>${currentLang==='ar'?'المهارات':'Skills'}:</strong> ${currentLang==='ar'?skills:translate(skills)}</p>
+        <p class="mb-1"><strong>${currentLang==='ar'?'تاريخ النشر':'Posted on'}:</strong> ${date}</p>
+        <p class="mb-1"><strong>Platform:</strong> ${platform}</p>
+        <a href="${website}" target="_blank" class="text-blue-600 underline">${currentLang==='ar'?'رابط التقديم':'Apply Link'}</a>
+    `;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeModal() {
+    document.getElementById('jobModal').classList.add('hidden');
+document.getElementById('jobModal').classList.remove('flex');
+}
+
+// Charts
+function renderCharts() {
+    const countryCounts = {};
+    const skillCounts = {};
+
+    jobsData.forEach(job => {
+        countryCounts[job.country] = (countryCounts[job.country] || 0) + 1;
+        job.skills.split('،').forEach(skill => {
+            const s = skill.trim();
+            if(s) skillCounts[s] = (skillCounts[s] || 0) + 1;
+        });
+    });
+
+    // أعلى 9 بيانات فقط
+    const sortedCountries = Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).slice(0,9);
+    const sortedSkills = Object.entries(skillCounts).sort((a,b)=>b[1]-a[1]).slice(0,9);
+
+    const colors = ['#2563eb','#16a34a','#f59e0b','#dc2626','#8b5cf6','#ec4899','#f43f5e','#10b981','#f97316'];
+
+    const ctx1 = document.getElementById('jobsChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: sortedCountries.map(x=>x[0]),
+            datasets: [{ data: sortedCountries.map(x=>x[1]), backgroundColor: colors }]
+        },
+        options: { responsive:true, plugins:{legend:{display:false}}}
+    });
+
+    const ctx2 = document.getElementById('skillsChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: sortedSkills.map(x=>x[0]),
+            datasets: [{ data: sortedSkills.map(x=>x[1]), backgroundColor: colors }]
+        },
+        options: { responsive:true, plugins:{legend:{display:false}}}
+    });
+}
+
+// أسهم التمرير
+let scrollTimeout;
+window.addEventListener('scroll', ()=>{
+    const scrollBtns = document.getElementById('scrollBtns');
+    scrollBtns.style.opacity = '1';
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(()=>{scrollBtns.style.opacity='0';},1500);
+});
+
+function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
+function scrollToBottom(){window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});}
+
+// تغيير اللغة
+document.getElementById('langBtn').addEventListener('click', ()=>{
+    currentLang = currentLang==='ar'?'en':'ar';
+    document.body.dir = currentLang==='ar'?'rtl':'ltr';
+    document.getElementById('langBtn').textContent = currentLang==='ar'?'English':'العربية';
+    document.getElementById('siteTitle').textContent = currentLang==='ar'?'بوابة الوظائف الاحترافية':'Professional Job Portal';
+    document.getElementById('siteSubtitle').textContent = currentLang==='ar'?'اعثر على أحدث فرص التسويق والذكاء الاصطناعي في الخليج والأردن':'Find the latest marketing and AI job opportunities in GCC & Jordan';
+    document.getElementById('searchKeyword').placeholder = currentLang==='ar'?'ابحث بالوظيفة أو المهارة':'Search by job or skill';
+    document.getElementById('filterCountry').options[0].textContent = currentLang==='ar'?'كل الدول':'All Countries';
+    document.getElementById('filterJob').options[0].textContent = currentLang==='ar'?'كل الوظائف':'All Jobs';
+    document.getElementById('searchBtn').textContent = currentLang==='ar'?'بحث':'Search';
+    document.getElementById('chartTitle').textContent = currentLang==='ar'?'إحصائيات الوظائف حسب الدولة':'Jobs Statistics by Country';
+    document.getElementById('skillsTitle').textContent = currentLang==='ar'?'المهارات الأكثر طلبًا':'Most in-demand Skills';
+    displayJobs(jobsData);
+    renderCharts();
+});
+
+// تهيئة
+initJobFilter();
+displayJobs(jobsData);
+renderCharts();
+
+</script>
+</body>
+</html>
